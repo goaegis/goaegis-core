@@ -126,7 +126,7 @@ type ConfigSource interface {
     // Single file: map[string][]byte{"config.yaml": data}
     // Multiple files: all YAML files from S3 folder/GitHub directory
     LoadFiles() (map[string][]byte, error)
-    
+
     Watch() <-chan struct{}     // Signal config changes
 }
 ```
@@ -315,7 +315,7 @@ func (s *S3Addon) OnBeforeConfigLoad(path string) (addons.ConfigSource, error) {
 // Implement ConfigSource interface
 func (s *S3Addon) LoadFiles() (map[string][]byte, error) {
     ctx := context.Background()
-    
+
     // For single file:
     result, err := s.client.GetObject(ctx, &s3.GetObjectInput{
         Bucket: &s.bucket,
@@ -335,10 +335,10 @@ func (s *S3Addon) LoadFiles() (map[string][]byte, error) {
     if err != nil {
         return nil, err
     }
-    
+
     // Return as single-file map
     return map[string][]byte{s.key: data}, nil
-    
+
     // For nested directory structure:
     // Use ListObjectsV2 to get all YAML files under a prefix,
     // fetch each with GetObject, and return map of all files
@@ -459,7 +459,7 @@ type ConfigSource interface {
     // For multi-file sources (nested S3 folders, GitHub directories),
     // return all YAML files - core will merge them automatically.
     LoadFiles() (map[string][]byte, error)
-    
+
     Watch() <-chan struct{}
 }
 ```
@@ -510,7 +510,7 @@ func (h *HTTPConfigSource) LoadFiles() (map[string][]byte, error) {
     if err != nil {
         return nil, err
     }
-    
+
     // Single file from HTTP endpoint
     return map[string][]byte{"http-config": data}, nil
 }

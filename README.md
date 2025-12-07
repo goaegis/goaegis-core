@@ -92,9 +92,9 @@ func main() {
     }
 
     if allowed {
-        log.Println("✅ Alice can read posts")
+        log.Println("Alice can read posts")
     } else {
-        log.Println("❌ Alice cannot read posts")
+        log.Println("Alice cannot read posts")
     }
 }
 ```
@@ -123,7 +123,7 @@ curl http://localhost:8080/admin/settings \
 
 ```
 goaegis-core/
-├── aegis/               # 👈 CORE LIBRARY - Import this in your code
+├── aegis/               # CORE LIBRARY
 │   ├── config/          # Configuration models and YAML loader
 │   ├── core/            # Core Aegis instance and API
 │   ├── engine/          # Authorization evaluation engine

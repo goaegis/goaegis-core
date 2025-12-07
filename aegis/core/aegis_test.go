@@ -345,7 +345,7 @@ func TestIsAllowed_BackwardCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	allowed, err := a.IsAllowed("user:alice", "posts", "read")
+	allowed, err := a.Can("user:alice", "posts", "read", nil)
 	if err != nil {
 		t.Fatalf("IsAllowed() error = %v", err)
 	}

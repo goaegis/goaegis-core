@@ -268,7 +268,7 @@ func (g *GitHubSource) Watch() <-chan struct{} {
 ```go
 func (g *GitHubSource) LoadFiles() (map[string][]byte, error) {
     files := make(map[string][]byte)
-    
+
     // List all files in directory recursively
     _, contents, _, err := g.client.Repositories.GetContents(
         context.Background(),
@@ -278,7 +278,7 @@ func (g *GitHubSource) LoadFiles() (map[string][]byte, error) {
     if err != nil {
         return nil, err
     }
-    
+
     // Recursively fetch all YAML files
     for _, content := range contents {
         if content.GetType() == "file" {
@@ -294,7 +294,7 @@ func (g *GitHubSource) LoadFiles() (map[string][]byte, error) {
             // Recursively load subdirectory...
         }
     }
-    
+
     return files, nil
 }
 ```
