@@ -1,0 +1,96 @@
+resources:
+  posts:
+    name: posts
+    type: collection
+    meta:
+      description: "Blog posts"
+
+  comments:
+    name: comments
+    type: collection
+    meta:
+      description: "Comments on posts"
+
+  users:
+    name: users
+    type: collection
+    meta:
+      description: "User management"
+
+  settings:
+    name: settings
+    type: singleton
+    meta:
+      description: "System settings"
+
+roles:
+  viewer:
+    name: viewer
+    permissions:
+      - resource: posts
+        actions: [read]
+        effect: allow
+      - resource: comments
+        actions: [read]
+        effect: allow
+
+  author:
+    name: author
+    inherits: [viewer]
+    permissions:
+      - resource: posts
+        actions: [create, read, update]
+        effect: allow
+      - resource: comments
+        actions: [create, read]
+        effect: allow
+
+  editor:
+    name: editor
+    inherits: [author]
+    permissions:
+      - resource: posts
+        actions: [delete]
+        effect: allow
+      - resource: comments
+        actions: [update, delete]
+        effect: allow
+
+  admin:
+    name: admin
+    inherits: [editor]
+    permissions:
+      - resource: users
+        actions: [create, read, update, delete]
+        effect: allow
+      - resource: settings
+        actions: [read, update]
+        effect: allow
+      - resource: "*"
+        actions: ["*"]
+        effect: allow
+
+subjects:
+  user:alice:
+    id: user:alice
+    roles: [viewer]
+    meta:
+      email: alice@example.com
+
+  user:bob:
+    id: user:bob
+    roles: [author]
+    meta:
+      email: bob@example.com
+
+  user:charlie:
+    id: user:charlie
+    roles: [editor]
+    meta:
+      email: charlie@example.com
+
+  user:admin:
+    id: user:admin
+    roles: [admin]
+    meta:
+      email: admin@example.com

@@ -1,0 +1,38 @@
+subjects:
+  user:john@acme.com:
+    id: user:john@acme.com
+    roles: [org_owner]
+    meta:
+      tenant: acme
+      department: engineering
+
+  user:jane@acme.com:
+    id: user:jane@acme.com
+    roles: [org_developer]
+    meta:
+      tenant: acme
+      department: engineering
+
+  user:auditor@acme.com:
+    id: user:auditor@acme.com
+    roles: [auditor]
+    meta:
+      tenant: acme
+      department: compliance
+
+  # Service accounts
+  service:ci-bot:
+    id: service:ci-bot
+    roles: [org_developer]
+    meta:
+      type: service_account
+      tenant: acme
+      purpose: "CI/CD automation"
+
+  service:monitoring:
+    id: service:monitoring
+    roles: [org_viewer]
+    meta:
+      type: service_account
+      tenant: acme
+      purpose: "Monitoring and alerts"

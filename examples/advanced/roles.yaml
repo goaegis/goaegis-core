@@ -1,0 +1,67 @@
+roles:
+  org_viewer:
+    name: org_viewer
+    permissions:
+      - resource: org
+        actions: [read]
+        effect: allow
+      - resource: project
+        actions: [read]
+        effect: allow
+      - resource: deployment
+        actions: [read]
+        effect: allow
+
+  org_developer:
+    name: org_developer
+    inherits: [org_viewer]
+    permissions:
+      - resource: project
+        actions: [create, update]
+        effect: allow
+      - resource: deployment
+        actions: [create, read, update]
+        effect: allow
+      - resource: api_key
+        actions: [create, read]
+        effect: allow
+
+  org_admin:
+    name: org_admin
+    inherits: [org_developer]
+    permissions:
+      - resource: org
+        actions: [update]
+        effect: allow
+      - resource: project
+        actions: [delete]
+        effect: allow
+      - resource: deployment
+        actions: [delete]
+        effect: allow
+      - resource: api_key
+        actions: [update, delete]
+        effect: allow
+
+  org_owner:
+    name: org_owner
+    inherits: [org_admin]
+    permissions:
+      - resource: org
+        actions: [delete]
+        effect: allow
+      - resource: billing
+        actions: [read, update]
+        effect: allow
+
+  # Special role: auditor can read everything but modify nothing
+  auditor:
+    name: auditor
+    permissions:
+      - resource: "*"
+        actions: [read]
+        effect: allow
+      # Deny all modifications
+      - resource: "*"
+        actions: [create, update, delete]
+        effect: deny

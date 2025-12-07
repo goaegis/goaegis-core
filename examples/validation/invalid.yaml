@@ -1,0 +1,25 @@
+# Invalid configuration demonstrating validation errors
+
+# Error 1: Role references non-existent resource
+roles:
+  bad_role:
+    name: bad_role
+    permissions:
+      - resource: non_existent_resource  # ❌ This resource doesn't exist
+        actions: [read]
+
+# Error 2: Subject references non-existent role
+subjects:
+  bad_subject:
+    id: bad_subject
+    roles: [non_existent_role]  # ❌ This role doesn't exist
+
+# Error 3: Circular inheritance
+roles:
+  role_a:
+    name: role_a
+    inherits: [role_b]  # ❌ Creates circular dependency
+  
+  role_b:
+    name: role_b
+    inherits: [role_a]  # ❌ Creates circular dependency

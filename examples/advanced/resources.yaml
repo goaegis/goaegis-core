@@ -1,0 +1,32 @@
+resources:
+  org:
+    name: org
+    type: tenant
+    meta:
+      description: "Organization/tenant root"
+
+  project:
+    name: project
+    type: collection
+    meta:
+      description: "Projects within an org"
+      parent: org
+
+  deployment:
+    name: deployment
+    type: collection
+    meta:
+      description: "Deployments within a project"
+      parent: project
+
+  api_key:
+    name: api_key
+    type: collection
+    meta:
+      description: "API keys for programmatic access"
+
+  billing:
+    name: billing
+    type: singleton
+    meta:
+      description: "Billing and payment settings"
