@@ -4,9 +4,9 @@ import (
 	"log"
 	"time"
 
-	aegis "github.com/dovakiin0/goaegis-core/aegis/core"
-	"github.com/dovakiin0/goaegis-core/examples/addons/logging"
-	"github.com/dovakiin0/goaegis-core/examples/addons/remote"
+	aegis "github.com/goaegis/goaegis-core/aegis/core"
+	"github.com/goaegis/goaegis-core/examples/addons/logging"
+	"github.com/goaegis/goaegis-core/examples/addons/remote"
 )
 
 func main() {

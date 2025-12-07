@@ -8,9 +8,9 @@ type Config struct {
 }
 
 type Resource struct {
-	Name string                 `yaml:"name"`
-	Type string                 `yaml:"type,omitempty"`
-	Meta map[string]interface{} `yaml:"meta,omitempty"`
+	Name string         `yaml:"name"`
+	Type string         `yaml:"type,omitempty"`
+	Meta map[string]any `yaml:"meta,omitempty"`
 }
 
 type Role struct {
@@ -26,13 +26,13 @@ type Permission struct {
 }
 
 type Subject struct {
-	ID    string                 `yaml:"id"`
-	Roles []string               `yaml:"roles"`
-	Meta  map[string]interface{} `yaml:"meta,omitempty"`
+	ID    string         `yaml:"id"`
+	Roles []string       `yaml:"roles"`
+	Meta  map[string]any `yaml:"meta,omitempty"`
 }
 
 type Policy struct {
-	Name string                 `yaml:"name"`
-	When map[string]interface{} `yaml:"when"`
-	Then map[string]interface{} `yaml:"then"`
+	Name string         `yaml:"name"`
+	When map[string]any `yaml:"when"`
+	Then map[string]any `yaml:"then"`
 }

@@ -3,8 +3,8 @@ package logging
 import (
 	"log"
 
-	"github.com/dovakiin0/goaegis-core/aegis/addons"
-	"github.com/dovakiin0/goaegis-core/aegis/config"
+	"github.com/goaegis/goaegis-core/aegis/addons"
+	"github.com/goaegis/goaegis-core/aegis/config"
 )
 
 // LoggingAddon logs all authorization checks and config changes
@@ -21,7 +21,7 @@ func (l *LoggingAddon) Name() string {
 	return "logging-addon"
 }
 
-func (l *LoggingAddon) Init(core interface{}) error {
+func (l *LoggingAddon) Init(core any) error {
 	log.Println("[logging-addon] Initialized")
 	return nil
 }

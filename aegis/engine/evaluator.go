@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 
-	"github.com/dovakiin0/goaegis-core/aegis/config"
+	"github.com/goaegis/goaegis-core/aegis/config"
 )
 
 const (
@@ -60,14 +60,15 @@ func (e *Engine) Evaluate(cfg *config.Config, subjectID, resource, action string
 		for _, perm := range role.Permissions {
 			if e.matchesPermission(perm, resource, action) {
 				effect := perm.Effect
-				if effect == "" {
-					effect = EffectAllow // default
-				}
-
-				if effect == EffectDeny {
-					denyMatched = true
-				} else if effect == EffectAllow {
+				switch effect {
+				case "":
+					effect = EffectAllow
+				case EffectAllow:
 					allowMatched = true
+				case EffectDeny:
+					denyMatched = true
+				default:
+					return false, fmt.Errorf("invalid effect %s in role %s", effect, roleName)
 				}
 			}
 		}

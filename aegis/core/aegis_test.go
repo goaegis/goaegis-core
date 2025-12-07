@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/dovakiin0/goaegis-core/aegis/addons"
-	"github.com/dovakiin0/goaegis-core/aegis/config"
+	"github.com/goaegis/goaegis-core/aegis/addons"
+	"github.com/goaegis/goaegis-core/aegis/config"
 )
 
 // Mock addon for testing
@@ -22,7 +22,7 @@ func (m *mockAddon) Name() string {
 	return m.name
 }
 
-func (m *mockAddon) Init(core interface{}) error {
+func (m *mockAddon) Init(core any) error {
 	m.initCalled = true
 	return nil
 }

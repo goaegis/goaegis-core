@@ -21,7 +21,7 @@ goaegis is a lightweight, plug-and-play authorization library that provides powe
 ## 📦 Installation
 
 ```bash
-go get github.com/dovakiin0/goaegis-core
+go get github.com/goaegis/goaegis-core
 ```
 
 ## 🚀 Quick Start
@@ -73,7 +73,7 @@ package main
 
 import (
     "log"
-    aegis "github.com/dovakiin0/goaegis-core/aegis/core"
+    aegis "github.com/goaegis/goaegis-core/aegis/core"
 )
 
 func main() {
@@ -242,7 +242,7 @@ subjects:
 
 ```go
 import (
-    aegis "github.com/dovakiin0/goaegis-core/aegis/core"
+    aegis "github.com/goaegis/goaegis-core/aegis/core"
 )
 
 authz := aegis.New()
@@ -400,12 +400,6 @@ authz.LoadConfig("./config.yaml")
 - [x] Complete test suite (51+ tests)
 - [ ] `.aegis` file format with custom parser
 - [ ] ABAC policy evaluation engine
-- [ ] goaegis-github (separate addon repo) - GitHub config loader
-- [ ] goaegis-s3 (separate addon repo) - S3 config loader
-- [ ] goaegis-ui (separate addon repo) - Web UI for managing config
-- [ ] goaegis-lsp (separate addon repo) - Language server for `.aegis` files
-- [ ] goaegis-server (separate addon repo) - Standalone HTTP server
-- [ ] Performance benchmarks
 
 ## 🤝 Contributing
 

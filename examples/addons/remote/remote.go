@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/dovakiin0/goaegis-core/aegis/addons"
-	"github.com/dovakiin0/goaegis-core/aegis/config"
+	"github.com/goaegis/goaegis-core/aegis/addons"
+	"github.com/goaegis/goaegis-core/aegis/config"
 )
 
 // S3Addon simulates loading config from a remote source (like S3) with hot reload.
@@ -38,7 +38,7 @@ func (s *S3Addon) Name() string {
 	return "s3-config-loader"
 }
 
-func (s *S3Addon) Init(core interface{}) error {
+func (s *S3Addon) Init(core any) error {
 	s.watchCh = make(chan struct{}, 1)
 	s.stopCh = make(chan struct{})
 

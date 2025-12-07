@@ -1,6 +1,6 @@
 package addons
 
-import "github.com/dovakiin0/goaegis-core/aegis/config"
+import "github.com/goaegis/goaegis-core/aegis/config"
 
 // Decision indicates addon result: Allow/Deny/Abstain
 type Decision int
@@ -24,7 +24,7 @@ type Addon interface {
 	// Init is called when the addon is registered, before any config is loaded.
 	// Use this to start servers, initialize resources, etc.
 	// The core Aegis instance is passed so addons can access it.
-	Init(core interface{}) error
+	Init(core any) error
 
 	// OnBeforeConfigLoad is called before config loading starts.
 	// Addons can provide alternative config sources (S3, GitHub, HTTP, etc.)
@@ -60,7 +60,7 @@ type Context struct {
 	Subject  string
 	Resource string
 	Action   string
-	Meta     map[string]interface{}
+	Meta     map[string]any
 }
 
 // ConfigSource allows addons to provide config from remote sources.

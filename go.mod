@@ -1,4 +1,4 @@
-module github.com/dovakiin0/goaegis-core
+module github.com/goaegis/goaegis-core
 
 go 1.24.2
 

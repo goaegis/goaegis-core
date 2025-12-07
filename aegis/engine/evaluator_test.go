@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/dovakiin0/goaegis-core/aegis/config"
+	"github.com/goaegis/goaegis-core/aegis/config"
 )
 
 func TestEvaluate_SimpleAllow(t *testing.T) {

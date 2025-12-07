@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/dovakiin0/goaegis-core/aegis/addons"
-	"github.com/dovakiin0/goaegis-core/aegis/config"
-	"github.com/dovakiin0/goaegis-core/aegis/engine"
+	"github.com/goaegis/goaegis-core/aegis/addons"
+	"github.com/goaegis/goaegis-core/aegis/config"
+	"github.com/goaegis/goaegis-core/aegis/engine"
 )
 
 type Aegis struct {

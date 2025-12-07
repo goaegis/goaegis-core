@@ -26,7 +26,7 @@ goaegis-core/
 
 ```bash
 # Clone the repository
-git clone https://github.com/dovakiin0/goaegis-core
+git clone https://github.com/goaeigs/goaegis-core
 cd goaegis-core
 
 # Install dependencies
@@ -148,8 +148,8 @@ package myaddon
 import (
     "log"
 
-    "github.com/dovakiin0/goaegis-core/aegis/addons"
-    "github.com/dovakiin0/goaegis-core/aegis/config"
+    "github.com/goaeigs/goaegis-core/aegis/addons"
+    "github.com/goaeigs/goaegis-core/aegis/config"
 )
 
 type LoggingAddon struct {
@@ -207,8 +207,8 @@ Transform or enrich config before it's used:
 package transform
 
 import (
-    "github.com/dovakiin0/goaegis-core/aegis/addons"
-    "github.com/dovakiin0/goaegis-core/aegis/config"
+    "github.com/goaeigs/goaegis-core/aegis/addons"
+    "github.com/goaeigs/goaegis-core/aegis/config"
 )
 
 type TransformAddon struct{}
