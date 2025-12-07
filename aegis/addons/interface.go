@@ -73,10 +73,14 @@ type Context struct {
 
 // ConfigSource allows addons to provide config from remote sources.
 // Examples: S3, GitHub, Google Drive, HTTP endpoints, databases.
+// Supports both single-file and multi-file (nested) configurations.
 type ConfigSource interface {
-	// Load returns the raw config data as bytes (YAML format).
-	// The core will parse and validate this.
-	Load() ([]byte, error)
+	// LoadFiles returns a map of filename -> content for all config files.
+	// For single file sources, return map with one entry (e.g., {"config.yaml": data}).
+	// For multi-file sources (e.g., GitHub repo directory, S3 folder), return all YAML files.
+	// Keys can be any identifiers (filenames, paths, etc.) - used only for error messages.
+	// This allows remote sources to support nested structures like filesystem directories.
+	LoadFiles() (map[string][]byte, error)
 
 	// Watch optionally returns a channel that signals when config changes.
 	// Return nil if hot reload is not supported.

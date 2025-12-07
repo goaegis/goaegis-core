@@ -12,9 +12,9 @@ Logs all authorization checks and config changes.
 
 ### 2. Mock Remote Config Loader (`remote/`)
 
-Simulates loading config from a remote source with hot reload.
+Simulates loading config from a remote source with hot reload. Demonstrates both single-file and multi-file (nested directory) support.
 
-**Use Case:** Understanding how to implement GitHub/S3 config loaders
+**Use Case:** Understanding how to implement GitHub/S3 config loaders with support for nested directory structures
 
 ### 3. Config Transformer (`transformer/`)
 

@@ -122,7 +122,11 @@ type Addon interface {
 
 // ConfigSource interface for remote config loading
 type ConfigSource interface {
-    Load() ([]byte, error)      // Fetch config data
+    // LoadFiles returns map of filename -> content
+    // Single file: map[string][]byte{"config.yaml": data}
+    // Multiple files: all YAML files from S3 folder/GitHub directory
+    LoadFiles() (map[string][]byte, error)
+    
     Watch() <-chan struct{}     // Signal config changes
 }
 ```
@@ -309,8 +313,10 @@ func (s *S3Addon) OnBeforeConfigLoad(path string) (addons.ConfigSource, error) {
 }
 
 // Implement ConfigSource interface
-func (s *S3Addon) Load() ([]byte, error) {
+func (s *S3Addon) LoadFiles() (map[string][]byte, error) {
     ctx := context.Background()
+    
+    // For single file:
     result, err := s.client.GetObject(ctx, &s3.GetObjectInput{
         Bucket: &s.bucket,
         Key:    &s.key,
@@ -325,7 +331,17 @@ func (s *S3Addon) Load() ([]byte, error) {
         s.lastETag = *result.ETag
     }
 
-    return io.ReadAll(result.Body)
+    data, err := io.ReadAll(result.Body)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Return as single-file map
+    return map[string][]byte{s.key: data}, nil
+    
+    // For nested directory structure:
+    // Use ListObjectsV2 to get all YAML files under a prefix,
+    // fetch each with GetObject, and return map of all files
 }
 
 func (s *S3Addon) Watch() <-chan struct{} {
@@ -403,8 +419,8 @@ authz := aegis.New()
 s3Client := s3.NewFromConfig(awsConfig)
 authz.Use(s3loader.New(s3Client, "my-bucket", "config.yaml", 30*time.Second))
 
-// Path ignored - S3 addon loads config
-authz.LoadConfig("")
+// Use cleaner API for addon-based loading
+authz.LoadConfigFromAddon()
 
 // Manual reload (re-fetches from S3)
 authz.ReloadConfig()
@@ -418,7 +434,7 @@ authz.Use(logging.New(true))    // nil ConfigSource - logs events
 authz.Use(s3Addon)               // Provides ConfigSource - loads from S3
 authz.Use(metrics.New())         // nil ConfigSource - tracks metrics
 
-authz.LoadConfig("")  // S3 addon loads, others react to events
+authz.LoadConfigFromAddon()  // S3 addon loads, others react to events
 ```
 
 ## Creating Remote Source Addons
@@ -438,7 +454,12 @@ To create a remote source addon, implement the `ConfigSource` interface:
 
 ```go
 type ConfigSource interface {
-    Load() ([]byte, error)
+    // LoadFiles returns map of filename -> content for all config files.
+    // For single file sources, return map with one entry.
+    // For multi-file sources (nested S3 folders, GitHub directories),
+    // return all YAML files - core will merge them automatically.
+    LoadFiles() (map[string][]byte, error)
+    
     Watch() <-chan struct{}
 }
 ```
@@ -473,8 +494,8 @@ func New(url string, pollInterval time.Duration) *HTTPConfigSource {
     }
 }
 
-// Load fetches config from HTTP endpoint
-func (h *HTTPConfigSource) Load() ([]byte, error) {
+// LoadFiles fetches config from HTTP endpoint
+func (h *HTTPConfigSource) LoadFiles() (map[string][]byte, error) {
     resp, err := h.client.Get(h.url)
     if err != nil {
         return nil, fmt.Errorf("http fetch failed: %w", err)
@@ -485,7 +506,13 @@ func (h *HTTPConfigSource) Load() ([]byte, error) {
         return nil, fmt.Errorf("http status %d", resp.StatusCode)
     }
 
-    return io.ReadAll(resp.Body)
+    data, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Single file from HTTP endpoint
+    return map[string][]byte{"http-config": data}, nil
 }
 
 // Watch polls for changes

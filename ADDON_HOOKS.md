@@ -210,8 +210,12 @@ For remote config loading, implement:
 
 ```go
 type ConfigSource interface {
-    // Load returns config data as bytes (YAML)
-    Load() ([]byte, error)
+    // LoadFiles returns a map of filename -> content for all config files.
+    // For single file sources, return map with one entry (e.g., {"config.yaml": data}).
+    // For multi-file sources (e.g., GitHub repo directory, S3 folder), return all YAML files.
+    // Keys can be any identifiers (filenames, paths, etc.) - used only for error messages.
+    // This allows remote sources to support nested structures like filesystem directories.
+    LoadFiles() (map[string][]byte, error)
 
     // Watch returns channel for hot reload signals
     // Return nil if hot reload not supported
@@ -219,11 +223,19 @@ type ConfigSource interface {
 }
 ```
 
-### Example: GitHub Loader
+**Key Features:**
+
+- **Single File:** Return map with one entry: `map[string][]byte{"config.yaml": data}`
+- **Multiple Files:** Return all YAML files from S3 folder/GitHub directory
+- **Nested Structure:** Supports arbitrary directory nesting like filesystem
+- **Merging:** Core automatically merges all files (resources, roles, subjects, policies)
+
+### Example: GitHub Loader (Single File)
 
 ```go
 type GitHubSource struct {
     client *github.Client
+    owner  string
     repo   string
     path   string
     branch string
@@ -231,7 +243,7 @@ type GitHubSource struct {
     stopCh chan struct{}
 }
 
-func (g *GitHubSource) Load() ([]byte, error) {
+func (g *GitHubSource) LoadFiles() (map[string][]byte, error) {
     content, _, _, err := g.client.Repositories.GetContents(
         context.Background(),
         g.owner, g.repo, g.path,
@@ -240,11 +252,50 @@ func (g *GitHubSource) Load() ([]byte, error) {
     if err != nil {
         return nil, err
     }
-    return []byte(content.GetContent()), nil
+    // Single file - return as map with one entry
+    return map[string][]byte{
+        g.path: []byte(content.GetContent()),
+    }, nil
 }
 
 func (g *GitHubSource) Watch() <-chan struct{} {
     return g.watchCh // Polls GitHub for changes
+}
+```
+
+### Example: GitHub Loader (Nested Directory)
+
+```go
+func (g *GitHubSource) LoadFiles() (map[string][]byte, error) {
+    files := make(map[string][]byte)
+    
+    // List all files in directory recursively
+    _, contents, _, err := g.client.Repositories.GetContents(
+        context.Background(),
+        g.owner, g.repo, g.path,
+        &github.RepositoryContentGetOptions{Ref: g.branch},
+    )
+    if err != nil {
+        return nil, err
+    }
+    
+    // Recursively fetch all YAML files
+    for _, content := range contents {
+        if content.GetType() == "file" {
+            name := content.GetName()
+            if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
+                data, err := fetchFileContent(g.client, g.owner, g.repo, content.GetPath(), g.branch)
+                if err != nil {
+                    return nil, err
+                }
+                files[name] = data
+            }
+        } else if content.GetType() == "dir" {
+            // Recursively load subdirectory...
+        }
+    }
+    
+    return files, nil
 }
 ```
 
@@ -276,7 +327,7 @@ func main() {
     authz.Use(s3Addon)
 
     // Initial load (S3 addon provides config)
-    if err := authz.LoadConfig(""); err != nil {
+    if err := authz.LoadConfigFromAddon(); err != nil {
         log.Fatal(err)
     }
 
@@ -310,7 +361,7 @@ authz.LoadConfig("/etc/app/config.yaml")
 import "github.com/yourorg/goaegis-s3"
 
 authz.Use(s3.New("prod-configs", "auth.yaml", 30*time.Second))
-authz.LoadConfig("") // S3 addon provides config
+authz.LoadConfigFromAddon() // S3 addon provides config
 // When you update S3 object, config reloads automatically
 ```
 
@@ -417,7 +468,7 @@ authz.LoadConfig("./config.yaml")
 // After: with S3 remote loading
 authz := aegis.New()
 authz.Use(s3.New("bucket", "key", 30*time.Second))
-authz.LoadConfig("") // S3 addon provides config
+authz.LoadConfigFromAddon() // S3 addon provides config
 ```
 
 ### Switching Between Sources
@@ -426,7 +477,7 @@ authz.LoadConfig("") // S3 addon provides config
 // Use S3 in production, filesystem in development
 if os.Getenv("ENV") == "production" {
     authz.Use(s3.New(bucket, key, pollInterval))
-    authz.LoadConfig("") // S3
+    authz.LoadConfigFromAddon() // S3
 } else {
     authz.LoadConfig("./config") // Filesystem
 }

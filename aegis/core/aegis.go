@@ -54,16 +54,22 @@ func (a *Aegis) Use(addon addons.Addon) error {
 	return nil
 }
 
-// RegisterAddon is deprecated, use Use() instead
-func (a *Aegis) RegisterAddon(addon addons.Addon) {
-	_ = a.Use(addon)
-}
-
 // LoadConfig loads configuration from filesystem or addon-provided sources.
-// By default, loads from local filesystem (file or directory).
-// Addons can provide remote sources (S3, GitHub, HTTP, etc.) via OnBeforeConfigLoad.
+// Pass a path to load from filesystem (file or directory).
+// Pass empty string to use addon-provided config source (S3, GitHub, HTTP, etc.).
+// Addons can provide sources via OnBeforeConfigLoad hook.
+//
+// For clearer code when using addons, prefer LoadConfigFromAddon().
 func (a *Aegis) LoadConfig(path string) error {
 	return a.loadConfigInternal(path, false)
+}
+
+// LoadConfigFromAddon loads configuration from an addon-provided source.
+// This is a clearer alternative to LoadConfig("") when using remote sources.
+// Addons provide sources (S3, GitHub, HTTP, etc.) via OnBeforeConfigLoad hook.
+// Returns error if no addon provides a config source.
+func (a *Aegis) LoadConfigFromAddon() error {
+	return a.loadConfigInternal("", false)
 }
 
 // ReloadConfig reloads the configuration from the same source.
@@ -110,7 +116,7 @@ func (a *Aegis) loadConfigInternal(path string, isReload bool) error {
 	} else {
 		// Load from filesystem (default behavior)
 		if path == "" {
-			return errors.New("path required when no addon provides config source")
+			return errors.New("no addon provided config source; use LoadConfig(path) for filesystem or register an addon with ConfigSource")
 		}
 		cfg, err = config.Load(path)
 		if err != nil {
@@ -195,12 +201,6 @@ func (a *Aegis) Can(subject, resource, action string, context map[string]any) (b
 
 	// Fall back to core evaluation
 	return a.eng.Evaluate(cfg, subject, resource, action)
-}
-
-// IsAllowed is a convenience method without context.
-// Deprecated: use Can() instead for context support.
-func (a *Aegis) IsAllowed(subject, resource, action string) (bool, error) {
-	return a.Can(subject, resource, action, nil)
 }
 
 // Shutdown gracefully shuts down all registered addons.

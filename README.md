@@ -99,113 +99,6 @@ func main() {
 }
 ```
 
-### 3. Demo: HTTP Server with Authorization
-
-Here's a complete example showing how to build an HTTP server with goaegis:
-
-```go
-package main
-
-import (
-    "encoding/json"
-    "fmt"
-    "log"
-    "net/http"
-    "os"
-
-    aegis "github.com/dovakiin0/goaegis-core/aegis/core"
-    "github.com/dovakiin0/goaegis-core/aegis/middleware"
-)
-
-var authz *aegis.Aegis
-
-func main() {
-    // Load configuration
-    configPath := os.Getenv("AEGIS_CONFIG_PATH")
-    if configPath == "" {
-        configPath = "./config"
-    }
-
-    authz = aegis.New()
-    if err := authz.LoadConfig(configPath); err != nil {
-        log.Fatalf("Failed to load config: %v", err)
-    }
-    defer authz.Shutdown()
-
-    log.Println("✅ goaegis configuration loaded successfully")
-
-    // Setup routes
-    http.HandleFunc("/health", healthHandler)
-    http.HandleFunc("/authorize", authorizeHandler)
-
-    // Protected route example
-    protectedMux := http.NewServeMux()
-    protectedMux.HandleFunc("/admin/settings", adminSettingsHandler)
-
-    // Extract subject from header (in production, extract from JWT/session)
-    subjectExtractor := func(r *http.Request) string {
-        return r.Header.Get("X-Subject-ID")
-    }
-
-    http.Handle("/admin/settings",
-        middleware.Require(authz, subjectExtractor, "settings", "update")(protectedMux))
-
-    port := os.Getenv("PORT")
-    if port == "" {
-        port = "8080"
-    }
-
-    log.Printf("🚀 Server starting on :%s", port)
-    log.Fatal(http.ListenAndServe(":"+port, nil))
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(map[string]string{
-        "status":  "healthy",
-        "service": "goaegis-demo",
-    })
-}
-
-// REST endpoint for authorization checks
-func authorizeHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-
-    var req struct {
-        Subject  string                 `json:"subject"`
-        Resource string                 `json:"resource"`
-        Action   string                 `json:"action"`
-        Context  map[string]interface{} `json:"context,omitempty"`
-    }
-
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        http.Error(w, "Invalid request body", http.StatusBadRequest)
-        return
-    }
-
-    allowed, err := authz.Can(req.Subject, req.Resource, req.Action, req.Context)
-    if err != nil {
-        http.Error(w, fmt.Sprintf("Authorization error: %v", err), http.StatusInternalServerError)
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(map[string]interface{}{
-        "allowed":  allowed,
-        "subject":  req.Subject,
-        "resource": req.Resource,
-        "action":   req.Action,
-    })
-}
-
-func adminSettingsHandler(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintln(w, "Welcome to admin settings - you are authorized!")
-}
-```
-
 **Usage:**
 
 ```bash
@@ -350,7 +243,6 @@ subjects:
 ```go
 import (
     aegis "github.com/dovakiin0/goaegis-core/aegis/core"
-    "github.com/dovakiin0/goaegis-core/aegis/middleware"
 )
 
 authz := aegis.New()
@@ -445,63 +337,16 @@ authz.LoadConfig("./config")  // Loads all files recursively
 
 ### Remote Configuration & Hot Reload
 
-**By default, goaegis loads configs from the filesystem.** For remote sources (GitHub, S3, HTTP, Google Drive, etc.), use addons. Each remote source has different authentication and fetching logic, so they're implemented as separate addons.
-
-**Filesystem (Default):**
+**By default, goaegis loads configs from the filesystem.** For remote sources (S3, GitHub, HTTP, etc.), use addons from separate repositories. Each remote source needs different SDKs and authentication, so they're packaged separately.
 
 ```go
+// Filesystem (default)
 authz := aegis.New()
-authz.LoadConfig("./config")  // Loads from local filesystem
-```
+authz.LoadConfig("./config")
 
-**Loading from S3:**
-
-```go
-import (
-    aegis "github.com/dovakiin0/goaegis-core/aegis/core"
-    "github.com/yourorg/goaegis-s3" // S3 addon (separate package)
-)
-
-authz := aegis.New()
-
-// S3 addon with hot reload
-s3Addon := s3loader.New(&s3loader.Config{
-    Bucket:       "my-configs",
-    Key:          "aegis/config.yaml",
-    Region:       "us-east-1",
-    PollInterval: 30 * time.Second, // Check for changes every 30s
-})
-authz.Use(s3Addon)
-
-// Load initial config (S3 addon handles loading)
-if err := authz.LoadConfig(""); err != nil {
-    log.Fatal(err)
-}
-
-// Hot reload happens automatically via addon's Watch() mechanism
-```
-
-**Loading from GitHub:**
-
-```go
-import "github.com/yourorg/goaegis-github" // GitHub addon (separate package)
-
-authz := aegis.New()
-
-// GitHub addon with hot reload
-githubAddon := github.New(&github.Config{
-    Repo:         "yourorg/configs",
-    Path:         "authorization/config.yaml",
-    Branch:       "main",
-    Token:        os.Getenv("GITHUB_TOKEN"),
-    PollInterval: 30 * time.Second,
-})
-authz.Use(githubAddon)
-
-// Path ignored when addon provides ConfigSource
-if err := authz.LoadConfig(""); err != nil {
-    log.Fatal(err)
-}
+// With remote source addon (see related projects below)
+authz.Use(remoteAddon)
+authz.LoadConfigFromAddon()  // Cleaner API for addon sources
 ```
 
 **Manual Hot Reload:**
@@ -513,206 +358,27 @@ if err := authz.ReloadConfig(); err != nil {
 }
 ```
 
-### Creating Addons
+### Addons
 
-Addons extend goaegis with custom functionality. The core library uses **filesystem-only** for config loading, keeping it lightweight and dependency-free. Remote sources are implemented as separate addons.
+Addons extend goaegis with custom functionality including remote config loaders, monitoring, and custom authorization logic.
 
-**Types of Addons:**
+**See [ADDON_HOOKS.md](ADDON_HOOKS.md) for comprehensive documentation on:**
 
-- **Remote config loaders**: S3 (AWS SDK), GitHub (GitHub API), HTTP endpoints, Google Drive, etc.
-- **Monitoring**: Logging, metrics, auditing, tracing
-- **Authorization hooks**: Custom decision logic, external policy engines
-- **Observers**: Watch config loads, authorization events, hot reloads
+- Creating addons
+- Lifecycle hooks and interfaces
+- Hot reload implementation
+- Complete examples
 
-**Why separate remote source addons?**
-
-Each remote source needs different SDKs and authentication:
-
-- S3 → AWS SDK, IAM roles
-- GitHub → GitHub API, PAT tokens
-- Google Drive → Google Drive API, OAuth2
-- HTTP → Custom headers, TLS certs
-
-By keeping them as addons, users only install what they need and the core stays clean.
-
-**Important:** Your addon struct must implement the `addons.Addon` interface.
-
-#### Basic Addon Example
+**Example usage:**
 
 ```go
-package myaddon
-
-import (
-    "github.com/dovakiin0/goaegis-core/aegis/addons"
-    "github.com/dovakiin0/goaegis-core/aegis/config"
-)
-
-// MyAddon implements the addons.Addon interface
-type MyAddon struct{}
-
-func (a *MyAddon) Name() string {
-    return "my-addon"
-}
-
-func (a *MyAddon) Init(core interface{}) error {
-    // Called when addon is registered
-    // Start servers, allocate resources, etc.
-    return nil
-}
-
-func (a *MyAddon) OnBeforeConfigLoad(path string) (addons.ConfigSource, error) {
-    // Return nil to use default filesystem loader
-    // Or return a ConfigSource for remote loading
-    return nil, nil
-}
-
-func (a *MyAddon) OnConfigValidate(cfg *config.Config) (*config.Config, error) {
-    // Validate or transform config before it's stored
-    // For example, add computed roles or resources
-    return cfg, nil
-}
-
-func (a *MyAddon) OnConfigLoad(cfg *config.Config) error {
-    // React to config changes (initial load and reloads)
-    return nil
-}
-
-func (a *MyAddon) OnAuthorize(ctx *addons.Context) (addons.Decision, error) {
-    // Custom authorization logic
-    if ctx.Subject == "super-admin" {
-        return addons.Allow, nil
-    }
-    return addons.Abstain, nil  // Let core engine decide
-}
-
-func (a *MyAddon) Shutdown() error {
-    // Called when application shuts down
-    // Clean up resources, close connections, etc.
-    return nil
-}
-```
-
-#### Advanced: GitHub Config Loader with Hot Reload
-
-```go
-package github
-
-import (
-    "context"
-    "time"
-
-    "github.com/dovakiin0/goaegis-core/aegis/addons"
-    "github.com/dovakiin0/goaegis-core/aegis/config"
-    "github.com/google/go-github/v57/github"
-)
-
-type GitHubAddon struct {
-    client       *github.Client
-    repo         string
-    owner        string
-    path         string
-    branch       string
-    pollInterval time.Duration
-    watchCh      chan struct{}
-    stopCh       chan struct{}
-}
-
-func (g *GitHubAddon) Name() string {
-    return "github-config-loader"
-}
-
-func (g *GitHubAddon) Init(core interface{}) error {
-    g.watchCh = make(chan struct{})
-    g.stopCh = make(chan struct{})
-    return nil
-}
-
-func (g *GitHubAddon) OnBeforeConfigLoad(path string) (addons.ConfigSource, error) {
-    // Return ourselves as the config source
-    go g.pollForChanges()
-    return g, nil
-}
-
-// ConfigSource interface implementation
-func (g *GitHubAddon) Load() ([]byte, error) {
-    ctx := context.Background()
-    fileContent, _, _, err := g.client.Repositories.GetContents(
-        ctx, g.owner, g.repo, g.path,
-        &github.RepositoryContentGetOptions{Ref: g.branch},
-    )
-    if err != nil {
-        return nil, err
-    }
-    content, err := fileContent.GetContent()
-    if err != nil {
-        return nil, err
-    }
-    return []byte(content), nil
-}
-
-func (g *GitHubAddon) Watch() <-chan struct{} {
-    return g.watchCh
-}
-
-func (g *GitHubAddon) pollForChanges() {
-    ticker := time.NewTicker(g.pollInterval)
-    defer ticker.Stop()
-
-    lastSHA := ""
-
-    for {
-        select {
-        case <-ticker.C:
-            // Check if file changed
-            ctx := context.Background()
-            fileContent, _, _, _ := g.client.Repositories.GetContents(
-                ctx, g.owner, g.repo, g.path,
-                &github.RepositoryContentGetOptions{Ref: g.branch},
-            )
-            if fileContent != nil && *fileContent.SHA != lastSHA {
-                lastSHA = *fileContent.SHA
-                // Signal config change
-                select {
-                case g.watchCh <- struct{}{}:
-                default:
-                }
-            }
-        case <-g.stopCh:
-            return
-        }
-    }
-}
-
-func (g *GitHubAddon) OnConfigValidate(cfg *config.Config) (*config.Config, error) {
-    return cfg, nil
-}
-
-func (g *GitHubAddon) OnConfigLoad(cfg *config.Config) error {
-    // Log reload event
-    return nil
-}
-
-func (g *GitHubAddon) OnAuthorize(ctx *addons.Context) (addons.Decision, error) {
-    return addons.Abstain, nil
-}
-
-func (g *GitHubAddon) Shutdown() error {
-    close(g.stopCh)
-    return nil
-}
-```
-
-**Usage:**
-
-```go
+// Register addons
 authz := aegis.New()
-authz.Use(github.New("owner/repo", "config.yaml", "main", token, 30*time.Second))
+authz.Use(myAddon)
 defer authz.Shutdown()
 
-// Initial load
-authz.LoadConfig("")
-
-// Config will auto-reload when GitHub file changes
+// Load config
+authz.LoadConfig("./config.yaml")
 ```
 
 ## 🎯 Use Cases

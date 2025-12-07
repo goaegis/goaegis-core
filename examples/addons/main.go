@@ -32,7 +32,7 @@ func main() {
 
 	// Load config (S3 addon will provide the source)
 	log.Println("\n3. Loading config from S3 (simulated)...")
-	if err := authz.LoadConfig(""); err != nil {
+	if err := authz.LoadConfigFromAddon(); err != nil {
 		log.Fatal(err)
 	}
 

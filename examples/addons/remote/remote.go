@@ -63,25 +63,35 @@ func (s *S3Addon) OnBeforeConfigLoad(path string) (addons.ConfigSource, error) {
 	return s, nil
 }
 
-// Load implements addons.ConfigSource - fetches config from S3
-func (s *S3Addon) Load() ([]byte, error) {
+// LoadFiles implements addons.ConfigSource - fetches config from S3
+// Supports both single file and multi-file (nested directory) configurations
+func (s *S3Addon) LoadFiles() (map[string][]byte, error) {
 	log.Printf("[s3-loader] Loading config from s3://%s/%s", s.bucket, s.key)
 
-	// In production, this would be:
+	// In production with single file:
 	// result, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 	//     Bucket: &s.bucket,
 	//     Key:    &s.key,
 	// })
-	// return io.ReadAll(result.Body)
+	// data, _ := io.ReadAll(result.Body)
+	// return map[string][]byte{s.key: data}, nil
 
-	// For demo, read from local file
+	// In production with folder/prefix (for nested structure):
+	// Use s3Client.ListObjectsV2 to get all YAML files under a prefix,
+	// then fetch each one with GetObject and add to the map.
+
+	// For demo, read from local file (single file simulation)
 	data, err := os.ReadFile(s.localFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config (simulating S3): %w", err)
 	}
 
 	log.Printf("[s3-loader] Loaded %d bytes from S3 (simulated)", len(data))
-	return data, nil
+
+	// Return as single-file map
+	return map[string][]byte{
+		s.key: data,
+	}, nil
 }
 
 // Watch implements addons.ConfigSource - returns channel for hot reload

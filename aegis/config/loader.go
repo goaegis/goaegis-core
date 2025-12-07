@@ -13,7 +13,14 @@ import (
 // ConfigSource allows addons to provide config from remote sources.
 // This is duplicated from addons package to avoid circular imports.
 type ConfigSource interface {
-	Load() ([]byte, error)
+	// LoadFiles returns a map of filename -> content for all config files.
+	// For single file sources, return map with one entry.
+	// For multi-file sources (e.g., GitHub repo directory), return all YAML files.
+	// Keys can be any identifiers (filenames, paths, etc.) - used only for error messages.
+	LoadFiles() (map[string][]byte, error)
+
+	// Watch returns a channel that signals when config changes.
+	// Return nil if hot reload is not supported.
 	Watch() <-chan struct{}
 }
 
@@ -74,9 +81,9 @@ func Load(path string) (*Config, error) {
 }
 
 // LoadFromSource loads config from a ConfigSource (provided by addons).
-// The source returns raw YAML bytes (S3, GitHub, HTTP, etc.).
+// Supports both single-file and multi-file sources (like filesystem directories).
 func LoadFromSource(source ConfigSource) (*Config, error) {
-	data, err := source.Load()
+	files, err := source.LoadFiles()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load from source: %w", err)
 	}
@@ -88,9 +95,39 @@ func LoadFromSource(source ConfigSource) (*Config, error) {
 		Policies:  []Policy{},
 	}
 
-	// Parse YAML
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	// Load and merge all files
+	for name, data := range files {
+		var partial Config
+		if err := yaml.Unmarshal(data, &partial); err != nil {
+			return nil, fmt.Errorf("failed to parse %s: %w", name, err)
+		}
+
+		// Merge resources
+		for key, resource := range partial.Resources {
+			if _, exists := cfg.Resources[key]; exists {
+				return nil, fmt.Errorf("duplicate resource key %s in %s", key, name)
+			}
+			cfg.Resources[key] = resource
+		}
+
+		// Merge roles
+		for key, role := range partial.Roles {
+			if _, exists := cfg.Roles[key]; exists {
+				return nil, fmt.Errorf("duplicate role key %s in %s", key, name)
+			}
+			cfg.Roles[key] = role
+		}
+
+		// Merge subjects
+		for key, subject := range partial.Subjects {
+			if _, exists := cfg.Subjects[key]; exists {
+				return nil, fmt.Errorf("duplicate subject key %s in %s", key, name)
+			}
+			cfg.Subjects[key] = subject
+		}
+
+		// Append policies
+		cfg.Policies = append(cfg.Policies, partial.Policies...)
 	}
 
 	// Validate
