@@ -230,142 +230,7 @@ type ConfigSource interface {
 - **Nested Structure:** Supports arbitrary directory nesting like filesystem
 - **Merging:** Core automatically merges all files (resources, roles, subjects, policies)
 
-### Example: GitHub Loader (Single File)
-
-```go
-type GitHubSource struct {
-    client *github.Client
-    owner  string
-    repo   string
-    path   string
-    branch string
-    watchCh chan struct{}
-    stopCh chan struct{}
-}
-
-func (g *GitHubSource) LoadFiles() (map[string][]byte, error) {
-    content, _, _, err := g.client.Repositories.GetContents(
-        context.Background(),
-        g.owner, g.repo, g.path,
-        &github.RepositoryContentGetOptions{Ref: g.branch},
-    )
-    if err != nil {
-        return nil, err
-    }
-    // Single file - return as map with one entry
-    return map[string][]byte{
-        g.path: []byte(content.GetContent()),
-    }, nil
-}
-
-func (g *GitHubSource) Watch() <-chan struct{} {
-    return g.watchCh // Polls GitHub for changes
-}
-```
-
-### Example: GitHub Loader (Nested Directory)
-
-```go
-func (g *GitHubSource) LoadFiles() (map[string][]byte, error) {
-    files := make(map[string][]byte)
-
-    // List all files in directory recursively
-    _, contents, _, err := g.client.Repositories.GetContents(
-        context.Background(),
-        g.owner, g.repo, g.path,
-        &github.RepositoryContentGetOptions{Ref: g.branch},
-    )
-    if err != nil {
-        return nil, err
-    }
-
-    // Recursively fetch all YAML files
-    for _, content := range contents {
-        if content.GetType() == "file" {
-            name := content.GetName()
-            if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
-                data, err := fetchFileContent(g.client, g.owner, g.repo, content.GetPath(), g.branch)
-                if err != nil {
-                    return nil, err
-                }
-                files[name] = data
-            }
-        } else if content.GetType() == "dir" {
-            // Recursively load subdirectory...
-        }
-    }
-
-    return files, nil
-}
-```
-
-## Complete Example: S3 Loader with Hot Reload
-
-See `examples/addons/` for full implementations.
-
-```go
-package main
-
-import (
-    "time"
-    aegis "github.com/dovakiin0/goaegis-core/aegis/core"
-    "github.com/yourorg/goaegis-s3"
-)
-
-func main() {
-    authz := aegis.New()
-    defer authz.Shutdown()
-
-    // Register S3 loader addon
-    s3Addon := s3.New(&s3.Config{
-        Bucket:       "my-configs",
-        Key:          "authorization/config.yaml",
-        Region:       "us-east-1",
-        PollInterval: 30 * time.Second, // Check for changes every 30s
-    })
-
-    authz.Use(s3Addon)
-
-    // Initial load (S3 addon provides config)
-    if err := authz.LoadConfigFromAddon(); err != nil {
-        log.Fatal(err)
-    }
-
-    // Config automatically reloads when S3 file changes
-    // No restart needed!
-
-    // Use authorization as normal
-    allowed, _ := authz.Can("user:alice", "posts", "read", nil)
-}
-```
-
-## Use Cases
-
-### 1. Production Config Management
-
-**Problem:** Want to update authorization rules in production without deploying
-
-**Solution A:** Filesystem with file watcher addon
-
-```go
-import "github.com/yourorg/goaegis-watcher"
-
-authz.Use(watcher.New("/etc/app/config.yaml", 5*time.Second))
-authz.LoadConfig("/etc/app/config.yaml")
-// File watcher triggers reload when file changes
-```
-
-**Solution B:** Use GitHub/S3 addon with hot reload
-
-```go
-import "github.com/yourorg/goaegis-s3"
-
-authz.Use(s3.New("prod-configs", "auth.yaml", 30*time.Second))
-authz.LoadConfigFromAddon() // S3 addon provides config
-// When you update S3 object, config reloads automatically
-```
-
-### 2. Multi-Environment Configs
+### 1. Multi-Environment Configs
 
 **Problem:** Need different roles for dev/staging/prod
 
@@ -389,7 +254,7 @@ func (a *EnvAddon) OnConfigValidate(cfg *config.Config) (*config.Config, error) 
 }
 ```
 
-### 3. Config Auditing
+### 2. Config Auditing
 
 **Problem:** Need to track all config changes
 
@@ -408,7 +273,7 @@ func (a *AuditAddon) OnConfigLoad(cfg *config.Config) error {
 }
 ```
 
-### 4. Admin API for Config Reload
+### 3. Admin API for Config Reload
 
 **Problem:** Want manual reload trigger via API
 
@@ -428,15 +293,6 @@ func (s *ServerAddon) handleReload(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-## Best Practices
-
-### Choosing Config Source
-
-1. **Development:** Use filesystem (default) - fast, simple, no dependencies
-2. **Production (single server):** Filesystem + file watcher addon for hot reload
-3. **Production (distributed):** S3/GitHub addon for centralized config management
-4. **Multi-cloud:** HTTP endpoint addon for cloud-agnostic loading
-
 ### Addon Development
 
 1. **Error Handling:** Return errors from hooks to abort config loading
@@ -447,60 +303,5 @@ func (s *ServerAddon) handleReload(w http.ResponseWriter, r *http.Request) {
 6. **Validation:** Use OnConfigValidate for business rule validation
 7. **Testing:** Test each hook independently with mocks
 8. **ConfigSource:** Return nil from OnBeforeConfigLoad to use filesystem
-
-## Migration Guide
-
-### Filesystem (Default - No Changes Needed)
-
-```go
-// Always works - filesystem is the default
-authz := aegis.New()
-authz.LoadConfig("./config")  // or "./config.yaml"
-```
-
-### Adding Remote Config Sources
-
-```go
-// Before: filesystem only
-authz := aegis.New()
-authz.LoadConfig("./config.yaml")
-
-// After: with S3 remote loading
-authz := aegis.New()
-authz.Use(s3.New("bucket", "key", 30*time.Second))
-authz.LoadConfigFromAddon() // S3 addon provides config
-```
-
-### Switching Between Sources
-
-```go
-// Use S3 in production, filesystem in development
-if os.Getenv("ENV") == "production" {
-    authz.Use(s3.New(bucket, key, pollInterval))
-    authz.LoadConfigFromAddon() // S3
-} else {
-    authz.LoadConfig("./config") // Filesystem
-}
-```
-
-No other code changes needed! Authorization works the same way.
-
-## Summary
-
-The addon system provides:
-
-✅ **Simple Default** - Filesystem loading works out-of-the-box  
-✅ **Remote Sources** - S3, GitHub, etc. via separate addons  
-✅ **Zero Downtime** - Hot reload without restart  
-✅ **Extensibility** - Transform and validate configs  
-✅ **Observability** - Hook into lifecycle events  
-✅ **Backward Compatible** - Existing code works unchanged  
-✅ **Clean Architecture** - Core has no cloud SDK dependencies
-
-**Architecture:**
-
-- **Core:** Handles filesystem loading (files/directories)
-- **Addons:** Provide remote sources (S3, GitHub, Google Drive, etc.)
-- **Benefit:** Each remote source can have custom implementation and dependencies
 
 See `examples/addons/` for working examples!

@@ -99,7 +99,7 @@ func validateRoles(cfg *Config) []ValidationError {
 			if inheritedRole == key {
 				errors = append(errors, ValidationError{
 					Field:   fmt.Sprintf("roles.%s.inherits", key),
-					Message: fmt.Sprintf("role cannot inherit from itself"),
+					Message: "role cannot inherit from itself",
 				})
 				continue
 			}

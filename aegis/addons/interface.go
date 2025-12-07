@@ -18,14 +18,6 @@ const (
 // - Hook into authorization decisions
 // - React to configuration changes
 // - Transform or validate configs
-//
-// Examples of addons (separate repos):
-// - goaegis-server: REST API for authorization checks
-// - goaegis-ui: Web UI for managing configurations
-// - goaegis-s3: Load config from S3 with hot reload
-// - goaegis-github: Load config from GitHub with hot reload
-// - goaegis-logging: Audit logging addon
-// - goaegis-metrics: Prometheus metrics
 type Addon interface {
 	Name() string
 

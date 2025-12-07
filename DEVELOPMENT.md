@@ -263,134 +263,6 @@ func (t *TransformAddon) Shutdown() error {
 }
 ```
 
-### Example: S3 Config Loader with Hot Reload
-
-```go
-package s3loader
-
-import (
-    "context"
-    "time"
-
-    "github.com/aws/aws-sdk-go-v2/service/s3"
-    "github.com/dovakiin0/goaegis-core/aegis/addons"
-    "github.com/dovakiin0/goaegis-core/aegis/config"
-)
-
-type S3Addon struct {
-    client       *s3.Client
-    bucket       string
-    key          string
-    pollInterval time.Duration
-    watchCh      chan struct{}
-    stopCh       chan struct{}
-    lastETag     string
-}
-
-func New(client *s3.Client, bucket, key string, pollInterval time.Duration) *S3Addon {
-    return &S3Addon{
-        client:       client,
-        bucket:       bucket,
-        key:          key,
-        pollInterval: pollInterval,
-    }
-}
-
-func (s *S3Addon) Name() string {
-    return "s3-config-loader"
-}
-
-func (s *S3Addon) Init(core interface{}) error {
-    s.watchCh = make(chan struct{}, 1)
-    s.stopCh = make(chan struct{})
-    return nil
-}
-
-// Provide S3 as config source
-func (s *S3Addon) OnBeforeConfigLoad(path string) (addons.ConfigSource, error) {
-    go s.pollForChanges()
-    return s, nil
-}
-
-// Implement ConfigSource interface
-func (s *S3Addon) LoadFiles() (map[string][]byte, error) {
-    ctx := context.Background()
-
-    // For single file:
-    result, err := s.client.GetObject(ctx, &s3.GetObjectInput{
-        Bucket: &s.bucket,
-        Key:    &s.key,
-    })
-    if err != nil {
-        return nil, err
-    }
-    defer result.Body.Close()
-
-    // Update ETag for change detection
-    if result.ETag != nil {
-        s.lastETag = *result.ETag
-    }
-
-    data, err := io.ReadAll(result.Body)
-    if err != nil {
-        return nil, err
-    }
-
-    // Return as single-file map
-    return map[string][]byte{s.key: data}, nil
-
-    // For nested directory structure:
-    // Use ListObjectsV2 to get all YAML files under a prefix,
-    // fetch each with GetObject, and return map of all files
-}
-
-func (s *S3Addon) Watch() <-chan struct{} {
-    return s.watchCh
-}
-
-func (s *S3Addon) pollForChanges() {
-    ticker := time.NewTicker(s.pollInterval)
-    defer ticker.Stop()
-
-    for {
-        select {
-        case <-ticker.C:
-            ctx := context.Background()
-            head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
-                Bucket: &s.bucket,
-                Key:    &s.key,
-            })
-            if err == nil && head.ETag != nil && *head.ETag != s.lastETag {
-                // Config changed, signal reload
-                select {
-                case s.watchCh <- struct{}{}:
-                default:
-                }
-            }
-        case <-s.stopCh:
-            return
-        }
-    }
-}
-
-func (s *S3Addon) OnConfigValidate(cfg *config.Config) (*config.Config, error) {
-    return cfg, nil
-}
-
-func (s *S3Addon) OnConfigLoad(cfg *config.Config) error {
-    return nil
-}
-
-func (s *S3Addon) OnAuthorize(ctx *addons.Context) (addons.Decision, error) {
-    return addons.Abstain, nil
-}
-
-func (s *S3Addon) Shutdown() error {
-    close(s.stopCh)
-    return nil
-}
-```
-
 ### Using Addons
 
 **Example 1: Filesystem Only (Default)**
@@ -398,32 +270,6 @@ func (s *S3Addon) Shutdown() error {
 ```go
 authz := aegis.New()
 authz.LoadConfig("./config")  // Uses filesystem
-```
-
-**Example 2: Filesystem + Logging**
-
-```go
-authz := aegis.New()
-authz.Use(logging.New(true))  // Addon doesn't provide ConfigSource
-authz.LoadConfig("./config")  // Still uses filesystem
-```
-
-**Example 3: S3 Remote Source**
-
-```go
-import "github.com/yourorg/goaegis-s3"
-
-authz := aegis.New()
-
-// S3 addon provides ConfigSource
-s3Client := s3.NewFromConfig(awsConfig)
-authz.Use(s3loader.New(s3Client, "my-bucket", "config.yaml", 30*time.Second))
-
-// Use cleaner API for addon-based loading
-authz.LoadConfigFromAddon()
-
-// Manual reload (re-fetches from S3)
-authz.ReloadConfig()
 ```
 
 **Example 4: Multiple Addons**
@@ -606,38 +452,6 @@ go authz.WatchConfig()
 6. **Testing**: Mock the remote service in tests
 7. **Documentation**: Clearly document required credentials and permissions
 
-### Popular Remote Source Ideas
-
-- **AWS S3**: Use AWS SDK, support IAM roles
-- **GitHub**: Fetch from private repos using PAT
-- **Google Drive**: Use Google Drive API
-- **Azure Blob**: Use Azure SDK
-- **Consul/etcd**: Watch key-value stores
-- **HTTP/REST API**: Generic HTTP endpoint
-- **Git Repository**: Clone and watch for commits
-
-## Performance Considerations
-
-### Memory Usage
-
-- All configuration is loaded into memory at startup
-- No lazy loading - optimize for authorization speed
-- Consider memory footprint for large configurations (1000s of roles/subjects)
-
-### Authorization Performance
-
-The engine should evaluate authorization in:
-
-- O(R) where R = number of roles per subject (typically < 10)
-- Role inheritance is pre-resolved
-- No I/O during authorization checks
-
-### Benchmarking
-
-```bash
-go test -bench=. ./aegis/engine
-```
-
 ## Code Style
 
 - Follow standard Go conventions
@@ -656,32 +470,3 @@ go test -bench=. ./aegis/engine
 6. Commit your changes (`git commit -m 'Add amazing feature'`)
 7. Push to the branch (`git push origin feature/amazing-feature`)
 8. Open a Pull Request
-
-## Future Development
-
-### Phase 1 (Current)
-
-- [x] YAML configuration loader
-- [x] RBAC engine
-- [x] Addon system
-- [x] HTTP middleware
-
-### Phase 2
-
-- [ ] `.aegis` file format parser
-- [ ] ABAC policy engine
-- [ ] Wildcard improvements (glob patterns)
-- [ ] Performance benchmarks
-
-### Phase 3
-
-- [ ] goaegis-ui (separate repo)
-- [ ] goaegis-lsp (separate repo)
-- [ ] goaegis-server (separate repo)
-
-### Phase 4
-
-- [ ] Multi-language clients (Python, Node.js, Rust)
-- [ ] Distributed caching support
-- [ ] Policy testing framework
-- [ ] Configuration validation tools

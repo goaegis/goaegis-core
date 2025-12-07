@@ -29,7 +29,7 @@ func (a *Aegis) Use(addon addons.Addon) error {
 		return errors.New("addon cannot be nil")
 	}
 
-	// Initialize the addon first (can start servers here)
+	// Initialize the addon first
 	if err := addon.Init(a); err != nil {
 		return fmt.Errorf("addon %s failed to initialize: %w", addon.Name(), err)
 	}
@@ -54,9 +54,8 @@ func (a *Aegis) Use(addon addons.Addon) error {
 	return nil
 }
 
-// LoadConfig loads configuration from filesystem or addon-provided sources.
+// LoadConfig loads configuration from filesystem
 // Pass a path to load from filesystem (file or directory).
-// Pass empty string to use addon-provided config source (S3, GitHub, HTTP, etc.).
 // Addons can provide sources via OnBeforeConfigLoad hook.
 //
 // For clearer code when using addons, prefer LoadConfigFromAddon().
@@ -65,7 +64,6 @@ func (a *Aegis) LoadConfig(path string) error {
 }
 
 // LoadConfigFromAddon loads configuration from an addon-provided source.
-// This is a clearer alternative to LoadConfig("") when using remote sources.
 // Addons provide sources (S3, GitHub, HTTP, etc.) via OnBeforeConfigLoad hook.
 // Returns error if no addon provides a config source.
 func (a *Aegis) LoadConfigFromAddon() error {
