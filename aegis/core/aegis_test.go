@@ -10,14 +10,29 @@ import (
 
 // Mock addon for testing
 type mockAddon struct {
-	name         string
-	loadCalled   bool
-	authDecision addons.Decision
-	authError    error
+	name           string
+	loadCalled     bool
+	initCalled     bool
+	shutdownCalled bool
+	authDecision   addons.Decision
+	authError      error
 }
 
 func (m *mockAddon) Name() string {
 	return m.name
+}
+
+func (m *mockAddon) Init(core interface{}) error {
+	m.initCalled = true
+	return nil
+}
+
+func (m *mockAddon) OnBeforeConfigLoad(path string) (addons.ConfigSource, error) {
+	return nil, nil // Use default filesystem loader
+}
+
+func (m *mockAddon) OnConfigValidate(cfg *config.Config) (*config.Config, error) {
+	return cfg, nil // No transformation
 }
 
 func (m *mockAddon) OnConfigLoad(cfg *config.Config) error {
@@ -27,6 +42,11 @@ func (m *mockAddon) OnConfigLoad(cfg *config.Config) error {
 
 func (m *mockAddon) OnAuthorize(ctx *addons.Context) (addons.Decision, error) {
 	return m.authDecision, m.authError
+}
+
+func (m *mockAddon) Shutdown() error {
+	m.shutdownCalled = true
+	return nil
 }
 
 func setupTestConfig(t *testing.T) string {
@@ -156,6 +176,10 @@ func TestUse_RegisterAddon(t *testing.T) {
 
 	if len(a.addons) != 1 {
 		t.Errorf("expected 1 addon, got %d", len(a.addons))
+	}
+
+	if !mock.initCalled {
+		t.Error("addon Init should have been called")
 	}
 }
 
@@ -327,5 +351,30 @@ func TestIsAllowed_BackwardCompatibility(t *testing.T) {
 	}
 	if !allowed {
 		t.Error("IsAllowed should work for backward compatibility")
+	}
+}
+
+func TestShutdown(t *testing.T) {
+	a := New()
+
+	mock1 := &mockAddon{name: "addon1"}
+	mock2 := &mockAddon{name: "addon2"}
+
+	if err := a.Use(mock1); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Use(mock2); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Shutdown(); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+
+	if !mock1.shutdownCalled {
+		t.Error("addon1 Shutdown should have been called")
+	}
+	if !mock2.shutdownCalled {
+		t.Error("addon2 Shutdown should have been called")
 	}
 }

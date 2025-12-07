@@ -10,6 +10,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ConfigSource allows addons to provide config from remote sources.
+// This is duplicated from addons package to avoid circular imports.
+type ConfigSource interface {
+	Load() ([]byte, error)
+	Watch() <-chan struct{}
+}
+
 // Load loads either a single file or a directory containing multiple config files.
 // After loading, it validates the configuration for duplicates, unknown references, etc.
 func Load(path string) (*Config, error) {
@@ -59,6 +66,34 @@ func Load(path string) (*Config, error) {
 	}
 
 	// Validate the entire configuration
+	if err := Validate(cfg); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
+
+	return cfg, nil
+}
+
+// LoadFromSource loads config from a ConfigSource (provided by addons).
+// The source returns raw YAML bytes (S3, GitHub, HTTP, etc.).
+func LoadFromSource(source ConfigSource) (*Config, error) {
+	data, err := source.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load from source: %w", err)
+	}
+
+	cfg := &Config{
+		Resources: make(map[string]Resource),
+		Roles:     make(map[string]Role),
+		Subjects:  make(map[string]Subject),
+		Policies:  []Policy{},
+	}
+
+	// Parse YAML
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	// Validate
 	if err := Validate(cfg); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}

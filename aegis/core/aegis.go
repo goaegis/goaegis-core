@@ -23,16 +23,29 @@ func New() *Aegis {
 }
 
 // Use registers an addon with the Aegis core.
+// Addons are initialized immediately and can start servers, etc.
 func (a *Aegis) Use(addon addons.Addon) error {
 	if addon == nil {
 		return errors.New("addon cannot be nil")
 	}
+
+	// Initialize the addon first (can start servers here)
+	if err := addon.Init(a); err != nil {
+		return fmt.Errorf("addon %s failed to initialize: %w", addon.Name(), err)
+	}
+
 	a.addons = append(a.addons, addon)
 
 	// If config is already loaded, notify the addon
 	v := a.cfg.Load()
 	if v != nil {
 		cfg := v.(*config.Config)
+		// Call validation hook (addon might transform config)
+		cfg, err := addon.OnConfigValidate(cfg)
+		if err != nil {
+			return fmt.Errorf("addon %s failed validation: %w", addon.Name(), err)
+		}
+		// Call load hook
 		if err := addon.OnConfigLoad(cfg); err != nil {
 			return fmt.Errorf("addon %s failed to load config: %w", addon.Name(), err)
 		}
@@ -46,12 +59,74 @@ func (a *Aegis) RegisterAddon(addon addons.Addon) {
 	_ = a.Use(addon)
 }
 
-// LoadConfig loads a single file or directory.
+// LoadConfig loads configuration from filesystem or addon-provided sources.
+// By default, loads from local filesystem (file or directory).
+// Addons can provide remote sources (S3, GitHub, HTTP, etc.) via OnBeforeConfigLoad.
 func (a *Aegis) LoadConfig(path string) error {
-	cfg, err := config.Load(path)
-	if err != nil {
-		return err
+	return a.loadConfigInternal(path, false)
+}
+
+// ReloadConfig reloads the configuration from the same source.
+// Used for hot reload when addon's ConfigSource.Watch() signals a change.
+func (a *Aegis) ReloadConfig() error {
+	v := a.cfg.Load()
+	if v == nil {
+		return errors.New("no config loaded yet, use LoadConfig first")
 	}
+	return a.loadConfigInternal("", true)
+}
+
+func (a *Aegis) loadConfigInternal(path string, isReload bool) error {
+	var cfg *config.Config
+	var err error
+
+	// Check if any addon wants to provide a config source
+	var configSource addons.ConfigSource
+	for _, ad := range a.addons {
+		source, err := ad.OnBeforeConfigLoad(path)
+		if err != nil {
+			return fmt.Errorf("addon %s failed in OnBeforeConfigLoad: %w", ad.Name(), err)
+		}
+		if source != nil {
+			configSource = source
+			break // First addon that provides a source wins
+		}
+	}
+
+	// Load config from source or filesystem
+	if configSource != nil {
+		// Load from addon-provided source (S3, GitHub, etc.)
+		cfg, err = config.LoadFromSource(configSource)
+		if err != nil {
+			return fmt.Errorf("failed to load config from addon source: %w", err)
+		}
+
+		// Setup hot reload watcher if supported
+		if !isReload {
+			if watchCh := configSource.Watch(); watchCh != nil {
+				go a.watchConfigChanges(watchCh)
+			}
+		}
+	} else {
+		// Load from filesystem (default behavior)
+		if path == "" {
+			return errors.New("path required when no addon provides config source")
+		}
+		cfg, err = config.Load(path)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Allow addons to validate/transform config
+	for _, ad := range a.addons {
+		cfg, err = ad.OnConfigValidate(cfg)
+		if err != nil {
+			return fmt.Errorf("addon %s failed validation: %w", ad.Name(), err)
+		}
+	}
+
+	// Store config
 	a.cfg.Store(cfg)
 
 	// Initialize or update engine
@@ -61,7 +136,7 @@ func (a *Aegis) LoadConfig(path string) error {
 		a.eng.UpdateConfig(cfg)
 	}
 
-	// Notify addons
+	// Notify addons that config is loaded
 	for _, ad := range a.addons {
 		if err := ad.OnConfigLoad(cfg); err != nil {
 			return fmt.Errorf("addon %s failed to handle config: %w", ad.Name(), err)
@@ -69,6 +144,16 @@ func (a *Aegis) LoadConfig(path string) error {
 	}
 
 	return nil
+}
+
+// watchConfigChanges watches for config changes and triggers reload
+func (a *Aegis) watchConfigChanges(watchCh <-chan struct{}) {
+	for range watchCh {
+		if err := a.ReloadConfig(); err != nil {
+			// Errors are logged by addons if needed
+			_ = err
+		}
+	}
 }
 
 // Can performs authorization check with optional context.
@@ -116,4 +201,20 @@ func (a *Aegis) Can(subject, resource, action string, context map[string]any) (b
 // Deprecated: use Can() instead for context support.
 func (a *Aegis) IsAllowed(subject, resource, action string) (bool, error) {
 	return a.Can(subject, resource, action, nil)
+}
+
+// Shutdown gracefully shuts down all registered addons.
+// Call this when your application is shutting down to clean up addon resources.
+func (a *Aegis) Shutdown() error {
+	var errs []error
+	for _, addon := range a.addons {
+		if err := addon.Shutdown(); err != nil {
+			errs = append(errs, fmt.Errorf("addon %s shutdown error: %w", addon.Name(), err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("shutdown errors: %v", errs)
+	}
+	return nil
 }
