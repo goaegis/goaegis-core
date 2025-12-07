@@ -54,9 +54,9 @@ func main() {
 			log.Printf("Error: %v", err)
 			continue
 		}
-		result := "❌ DENIED"
+		result := "DENIED"
 		if allowed {
-			result = "✅ ALLOWED"
+			result = "ALLOWED"
 		}
 		log.Printf("%s: %s -> %s.%s", result, tc.subject, tc.resource, tc.action)
 	}

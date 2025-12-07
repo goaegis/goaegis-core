@@ -27,7 +27,6 @@ func (e *Engine) UpdateConfig(cfg *config.Config) {
 // Evaluate performs the authorization decision.
 // Returns (allowed bool, error).
 //
-// Algorithm:
 // 1. Lookup subject and get all roles (including inherited)
 // 2. Aggregate all permissions from all roles
 // 3. Check for matching resource/action permissions
