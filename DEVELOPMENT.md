@@ -4,7 +4,7 @@
 
 ```
 goaegis-core/
-├── aegis/                    # Core library code
+├── aegis/                   # Core library code
 │   ├── addons/              # Addon system interfaces
 │   │   └── interface.go
 │   ├── config/              # Configuration models & loader

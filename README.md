@@ -1,4 +1,5 @@
-# 🛡️ goaegis-core
+<center><img src="logo.png" width="150"></center>
+<center><h1>goaegis-core</h1></center>
 
 **Ultra-fast, configuration-driven RBAC/ABAC authorization framework for Go**
 
@@ -99,25 +100,6 @@ func main() {
 }
 ```
 
-**Usage:**
-
-```bash
-# Start the server
-AEGIS_CONFIG_PATH=./config go run main.go
-
-# Test authorization endpoint
-curl -X POST http://localhost:8080/authorize \
-  -H "Content-Type: application/json" \
-  -d '{
-    "subject": "user:alice",
-    "resource": "posts",
-    "action": "read"
-  }'
-
-# Test protected endpoint
-curl http://localhost:8080/admin/settings \
-  -H "X-Subject-ID: user:admin"
-```
 
 ## 🏗️ Architecture
 
@@ -179,8 +161,12 @@ Extensibility interface:
 ```go
 type Addon interface {
     Name() string
+    Init(core any) error
+    OnBeforeConfigLoad(path string) (ConfigSource, error)
+    OnConfigValidate(cfg *config.Config) (*config.Config, error)
     OnConfigLoad(cfg *config.Config) error
     OnAuthorize(ctx *Context) (Decision, error)
+    Shutdown() error
 }
 ```
 
@@ -236,29 +222,8 @@ subjects:
 4. If any permission has `effect: allow` → **ALLOW**
 5. Default → **DENY**
 
-## 🔌 Middleware Integration
+## 🔌 Middleware Integration Example
 
-### Standard HTTP
-
-```go
-import (
-    aegis "github.com/goaegis/goaegis-core/aegis/core"
-)
-
-authz := aegis.New()
-authz.LoadConfig("./config.yaml")
-
-// Extract subject from request (JWT, session, header, etc.)
-subjectExtractor := func(r *http.Request) string {
-    return r.Header.Get("X-Subject-ID")
-}
-
-// Protect routes
-http.Handle("/admin",
-    middleware.Require(authz, subjectExtractor, "admin", "access")(adminHandler))
-```
-
-### Custom Integration
 
 ```go
 // In your authentication middleware
@@ -394,7 +359,6 @@ authz.LoadConfig("./config.yaml")
 - [x] YAML configuration loader (local & remote)
 - [x] RBAC engine with role inheritance
 - [x] Addon system with comprehensive lifecycle hooks
-- [x] Remote config loading (GitHub, S3, HTTP via addons)
 - [x] Hot reload support
 - [x] Comprehensive validation system
 - [x] Complete test suite (51+ tests)
@@ -417,7 +381,6 @@ All servers, UIs, and remote loaders are separate addon repositories:
 
 - **goaegis-github** - Load configs from GitHub with hot reload (coming soon)
 - **goaegis-s3** - Load configs from AWS S3 with hot reload (coming soon)
-- **goaegis-http** - Load configs from HTTP endpoints (coming soon)
 
 **Servers & UIs:**
 
