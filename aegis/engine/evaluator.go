@@ -60,9 +60,7 @@ func (e *Engine) Evaluate(cfg *config.Config, subjectID, resource, action string
 			if e.matchesPermission(perm, resource, action) {
 				effect := perm.Effect
 				switch effect {
-				case "":
-					effect = EffectAllow
-				case EffectAllow:
+				case "", EffectAllow:
 					allowMatched = true
 				case EffectDeny:
 					denyMatched = true
