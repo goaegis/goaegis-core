@@ -373,25 +373,22 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 MIT License - see LICENSE file for details
 
-## 🔗 Related Projects
+## 🔗 Related Projects & Addons
 
-All servers, UIs, and remote loaders are separate addon repositories:
+The `goaegis` ecosystem is extensible, lightweight, and supported by modular addons:
 
 **Remote Config Loaders:**
-
-- **goaegis-github** - Load configs from GitHub with hot reload (coming soon)
-- **goaegis-s3** - Load configs from AWS S3 with hot reload (coming soon)
+- **[goaegis-github](https://github.com/goaegis/goaegis-github)** - Load configurations from GitHub repositories with automatic commit polling and hot reload.
+- **[goaegis-s3](https://github.com/goaegis/goaegis-s3)** - Load configurations from AWS S3 buckets (single file or folders) with ETag-based hot reload.
 
 **Servers & UIs:**
-
-- **goaegis-server** - Standalone HTTP server addon (coming soon)
-- **goaegis-ui** - Web interface addon for managing authorization (coming soon)
+- **[goaegis-server](https://github.com/goaegis/goaegis-server)** - Standalone HTTP REST Server exposing authorization checking, reloading, and configuration inspection APIs.
+- **[goaegis-ui](https://github.com/goaegis/goaegis-ui)** - Sleek embedded dark-mode Visual Console to review, manage, and manually hot-reload active rules.
 
 **Development Tools:**
+- **[goaegis-lsp](https://github.com/goaegis/goaegis-lsp)** - JSON-RPC Language Server Protocol (LSP) for `.aegis` files, offering real-time lints, diagnostics, and autocompletion keywords.
 
-- **goaegis-lsp** - Language server addon for `.aegis` files (coming soon)
-
-goaegis-core is a pure library with no server code. All extensions are implemented as addons.
+goaegis-core remains a zero-dependency pure core library. Choose and install only the addons you need!
 
 ---
 
